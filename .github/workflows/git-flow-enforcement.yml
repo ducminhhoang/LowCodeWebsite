@@ -1,0 +1,52 @@
+name: Git Flow Enforcement
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - release/**
+
+jobs:
+  # Job ngăn PR từ feature/* vào main hoặc release/*
+  block-feature-merge:
+    if: github.event.pull_request.base.ref == 'main' || startsWith(github.event.pull_request.base.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block PR from feature/* to main or release/*
+        run: |
+          if [[ "${{ github.head_ref }}" == feature/* ]]; then
+            echo "Feature branches cannot be merged into main or release branches."
+            exit 1
+          fi
+
+  # Job chỉ cho phép merge từ develop vào release/*
+  enforce-develop-to-release:
+    if: startsWith(github.event.pull_request.base.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure merge is from develop to release/*
+        run: |
+          if [[ "${{ github.head_ref }}" != "develop" ]]; then
+            echo "Only merges from 'develop' are allowed into release branches."
+            exit 1
+          fi
+
+  # Job chạy khi merge từ feature/* vào develop, thực hiện kiểm tra mã và thử nghiệm
+  test-feature-to-develop:
+    if: github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
